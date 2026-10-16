@@ -3,13 +3,16 @@ Modelo golden en punto fijo (fxpmath) del filtro RRC en frecuencia.
 
     python3 run_math.py
 
-Salidas (en python_math/out/):
-    img/*.png          float vs fijo y barridos de SQNR
-    vectors/           mismos archivos y formato que ../vectors
-    resultados.md      metricas + comparacion bit a bit contra ../vectors
+Salidas:
+    out/img/*.png         filtro, float vs fijo, constelacion y barridos de SQNR
+    out/vectors/          mismos archivos y formato que ../vectors
+    out/resultados.md     metricas + comparacion bit a bit contra ../vectors
+    ../docs/resultados.md reporte de la documentacion (tablas + graficos)
+    ../docs/img/*.png     los mismos 4 graficos, para la documentacion
 """
 import filecmp
 import os
+import shutil
 import time
 
 import matplotlib
@@ -27,6 +30,8 @@ OUT = os.path.join(HERE, "out")
 IMG = os.path.join(OUT, "img")
 VEC = os.path.join(OUT, "vectors")
 GOLDEN_VEC = os.path.join(os.path.dirname(HERE), "vectors")
+DOCS = os.path.join(os.path.dirname(HERE), "docs")
+PLOTS = ("filtro_rrc.png", "float_vs_fijo.png", "constelacion.png", "sqnr_vs_bits.png")
 N_SYM = 2048
 N_SYM_VEC = 256
 
@@ -49,6 +54,7 @@ def evaluate(h, cfg, data):
         rows.append(dict(dataset=name, td_vs_fd=float(np.max(np.abs(y_td - y_fd))),
                          sqnr=sqnr_db(y_fd, y_fx),
                          max_err_lsb=float(max(np.abs(err.real).max(), np.abs(err.imag).max())),
+                         peak=float(max(np.abs(y_fd.real).max(), np.abs(y_fd.imag).max())),
                          ovf=sum(log.counts.values())))
     return rows
 
@@ -59,23 +65,69 @@ def sweep(h, x, param, values, **fixed):
             for v in values]
 
 
-def plots(h, cfg, x):
+def plot_filter(h, cfg, filt):
+    f = np.linspace(-0.5, 0.5, 1024, endpoint=False)
+    Hd = np.fft.fftshift(np.fft.fft(h, 1024))
+    k = np.arange(C.N_FFT)
+    Hq = filt.H_re.get_val() + 1j * filt.H_im.get_val()
+    fig, ax = plt.subplots(1, 2, figsize=(11, 3.8))
+    ax[0].stem(np.arange(len(h)), h)
+    ax[0].set(title=f"RRC: {C.N_TAPS} taps, roll-off {C.BETA}, OS={C.OS}",
+              xlabel="n", ylabel="h[n]")
+    ax[0].grid(alpha=.3)
+    ax[1].plot(f * C.OS, 20 * np.log10(np.abs(Hd) + 1e-12), label="|H(f)| continua")
+    fk = np.where(k < C.N_FFT // 2, k, k - C.N_FFT) / C.N_FFT
+    ax[1].plot(fk * C.OS, 20 * np.log10(np.abs(Hq) + 1e-12), "o",
+               label=f"H[k] cuantizado {cfg.h}")
+    ax[1].set(title="Respuesta en frecuencia", xlabel="f / (1/T)", ylabel="dB",
+              ylim=(-50, 3))
+    ax[1].grid(alpha=.3)
+    ax[1].legend()
+    fig.tight_layout()
+    fig.savefig(os.path.join(IMG, "filtro_rrc.png"), dpi=120)
+    plt.close(fig)
+
+
+def plot_float_vs_fixed(h, cfg, x):
     y_fd = ols_float(x, h)
     y_fx, *_ = FreqFilterFxp(h, cfg).run(x)
-    e = (y_fx - y_fd) / 2.0 ** -cfg.y.nbf
-    fig, ax = plt.subplots(2, 1, figsize=(11, 6))
     n = np.arange(120)
+    fig, ax = plt.subplots(3, 1, figsize=(11, 8))
     ax[0].plot(n, y_fd.real[n], label="float")
-    ax[0].plot(n, y_fx.real[n], "--", label=f"fijo fxpmath (y {cfg.y})")
+    ax[0].plot(n, y_fx.real[n], "--", label=f"fijo (y {cfg.y})")
     ax[0].set(title="Salida - parte real", xlabel="n")
     ax[0].legend()
     ax[0].grid(alpha=.3)
-    ax[1].hist(np.concatenate([e.real, e.imag]), bins=60)
-    ax[1].set(title="Histograma del error [LSB de salida]")
+    e = (y_fx - y_fd) / 2.0 ** -cfg.y.nbf
+    ax[1].plot(e.real, lw=.6, label="real")
+    ax[1].plot(e.imag, lw=.6, label="imag")
+    ax[1].set(title="Error fijo - float [LSB de salida]", xlabel="n")
+    ax[1].legend()
+    ax[1].grid(alpha=.3)
+    ax[2].hist(np.concatenate([e.real, e.imag]), bins=60)
+    ax[2].set(title="Histograma del error [LSB]")
     fig.tight_layout()
     fig.savefig(os.path.join(IMG, "float_vs_fijo.png"), dpi=120)
     plt.close(fig)
 
+    # constelacion tras el filtro adaptado del receptor h[-n] (float): la cascada
+    # h * h[-n] tiene su pico en n = N_TAPS-1 (entero) para cualquier h, aun si el
+    # pico de h solo cae entre muestras (RRC simetrico con cantidad par de taps)
+    rx_fd = np.convolve(y_fd, h[::-1])[:len(x)]
+    rx_fx = np.convolve(y_fx, h[::-1])[:len(x)]
+    idx = np.arange(C.N_TAPS - 1 + 10 * C.OS, len(x), C.OS)
+    fig, ax = plt.subplots(figsize=(5, 5))
+    ax.plot(rx_fd.real[idx], rx_fd.imag[idx], ".", ms=4, label="TX float")
+    ax.plot(rx_fx.real[idx], rx_fx.imag[idx], "x", ms=3, label="TX fijo")
+    ax.set(title="Instantes de simbolo tras filtro adaptado RX", aspect="equal")
+    ax.grid(alpha=.3)
+    ax.legend()
+    fig.tight_layout()
+    fig.savefig(os.path.join(IMG, "constelacion.png"), dpi=120)
+    plt.close(fig)
+
+
+def plot_sweeps(h, x):
     nbf, nbw = list(range(2, 15)), list(range(4, 17))
     sw = dict(nbf=nbf, nbw=nbw,
               round=sweep(h, x, "nbf_d", nbf, rnd="round", nb_tw=16, nb_h=16),
@@ -85,12 +137,13 @@ def plots(h, cfg, x):
     fig, ax = plt.subplots(1, 2, figsize=(11, 3.8))
     ax[0].plot(nbf, sw["round"], "o-", label="redondeo")
     ax[0].plot(nbf, sw["trunc"], "s-", label="truncado")
-    ax[0].set(title="SQNR vs NBF_D (fxpmath)", xlabel="NBF_D", ylabel="SQNR [dB]")
+    ax[0].set(title="SQNR vs bits fraccionales internos (NBF_D)",
+              xlabel="NBF_D", ylabel="SQNR [dB]")
     ax[0].legend()
     ax[0].grid(alpha=.3)
     ax[1].plot(nbw, sw["tw"], "o-", label="twiddles (NB_TW)")
     ax[1].plot(nbw, sw["h"], "s-", label="H[k] (NB_H)")
-    ax[1].set(title="SQNR vs bits de coeficientes (fxpmath)", xlabel="bits", ylabel="SQNR [dB]")
+    ax[1].set(title="SQNR vs bits de coeficientes", xlabel="bits", ylabel="SQNR [dB]")
     ax[1].legend()
     ax[1].grid(alpha=.3)
     fig.tight_layout()
@@ -192,6 +245,41 @@ def write_report(cfg, rows, sw, cmp, t_run):
     return p
 
 
+def write_docs_report(h, cfg, rows, sw):
+    """../docs/resultados.md: tablas completas + los 4 graficos (copiados a ../docs/img)."""
+    os.makedirs(os.path.join(DOCS, "img"), exist_ok=True)
+    for fn in PLOTS:
+        shutil.copyfile(os.path.join(IMG, fn), os.path.join(DOCS, "img", fn))
+    p = os.path.join(DOCS, "resultados.md")
+    with open(p, "w") as f:
+        f.write("# Resultados del modelo golden (generado por `python_math/run_math.py`)\n\n")
+        f.write("## Coeficientes RRC normalizados (max|H[k]| = 1)\n\n")
+        f.write("| n | " + " | ".join(str(i) for i in range(len(h))) + " |\n")
+        f.write("|---" * (len(h) + 1) + "|\n")
+        f.write("| h[n] | " + " | ".join(f"{v:+.4f}" for v in h) + " |\n\n")
+        f.write("## Formatos de punto fijo por nodo\n\n"
+                "| Nodo | Formato | dtype fxpmath | Bits enteros |\n|---|---|---|---|\n")
+        for node, fmt in cfg.table():
+            f.write(f"| {node} | {fmt} | `{fmt.dtype}` | {fmt.nbi} |\n")
+        f.write(f"\nRedondeo: `{cfg.rnd}` (half-up) - Overflow: `{cfg.ovf}`\n\n")
+        f.write(f"## Float vs punto fijo ({N_SYM} simbolos por dataset)\n\n")
+        f.write("| Dataset | max\\|FIR tiempo - OLS float\\| | SQNR fijo vs float [dB] "
+                "| Error max [LSB salida] | Pico salida | Overflows |\n|---|---|---|---|---|---|\n")
+        for r in rows:
+            f.write(f"| {r['dataset']} | {r['td_vs_fd']:.1e} | {r['sqnr']:.1f} | "
+                    f"{r['max_err_lsb']:.2f} | {r['peak']:.3f} | {r['ovf']} |\n")
+        f.write("\n## Barrido de anchos (dataset random_a)\n\n")
+        f.write("| NBF_D | SQNR redondeo [dB] | SQNR truncado [dB] |\n|---|---|---|\n")
+        for n, a, b in zip(sw["nbf"], sw["round"], sw["trunc"]):
+            f.write(f"| {n} | {a:.1f} | {b:.1f} |\n")
+        f.write("\n| Bits | SQNR vs NB_TW [dB] | SQNR vs NB_H [dB] |\n|---|---|---|\n")
+        for n, a, b in zip(sw["nbw"], sw["tw"], sw["h"]):
+            f.write(f"| {n} | {a:.1f} | {b:.1f} |\n")
+        f.write("\n![filtro](img/filtro_rrc.png)\n\n![float vs fijo](img/float_vs_fijo.png)\n\n"
+                "![constelacion](img/constelacion.png)\n\n![sqnr](img/sqnr_vs_bits.png)\n")
+    return p
+
+
 def main():
     os.makedirs(IMG, exist_ok=True)
     h = normalize_taps(rrcos(C.BETA, C.OS, C.N_TAPS, C.RRC_SYMMETRIC), C.N_FFT)
@@ -212,7 +300,9 @@ def main():
     t0 = time.perf_counter()
     FreqFilterFxp(h, cfg).run(x_a)
     t_run = time.perf_counter() - t0
-    sw = plots(h, cfg, x_a)
+    plot_filter(h, cfg, FreqFilterFxp(h, cfg))
+    plot_float_vs_fixed(h, cfg, x_a)
+    sw = plot_sweeps(h, x_a)
 
     export(h, cfg, data)
     cmp = compare_with_reference()
@@ -226,7 +316,8 @@ def main():
                 print(f"  DIFIERE: {rel}")
 
     rep = write_report(cfg, rows, sw, cmp, t_run)
-    print(f"\nGraficos en {IMG}\nVectores en {VEC}\nReporte en {rep}")
+    doc = write_docs_report(h, cfg, rows, sw)
+    print(f"\nGraficos en {IMG}\nVectores en {VEC}\nReporte en {rep}\nDocumentacion en {doc}")
 
 
 if __name__ == "__main__":

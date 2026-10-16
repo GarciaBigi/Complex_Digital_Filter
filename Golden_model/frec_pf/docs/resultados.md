@@ -1,4 +1,4 @@
-# Resultados del modelo golden (generado por `run_golden.py`)
+# Resultados del modelo golden (generado por `python_math/run_math.py`)
 
 ## Coeficientes RRC normalizados (max|H[k]| = 1)
 
@@ -8,23 +8,23 @@
 
 ## Formatos de punto fijo por nodo
 
-| Nodo | Formato | Bits enteros |
-|---|---|---|
-| x[n] entrada | S(8,6) | 1 |
-| twiddle W | S(10,8) | 1 |
-| H[k] ROM | S(10,8) | 1 |
-| FFT etapa 1 | S(11,8) | 2 |
-| FFT etapa 2 | S(12,8) | 3 |
-| FFT etapa 3 | S(13,8) | 4 |
-| FFT etapa 4 | S(14,8) | 5 |
-| Y[k]=X[k]H[k] | S(14,8) | 5 |
-| IFFT etapa 1 | S(14,8) | 5 |
-| IFFT etapa 2 | S(14,8) | 5 |
-| IFFT etapa 3 | S(14,8) | 5 |
-| IFFT etapa 4 | S(14,8) | 5 |
-| y[n] salida | S(10,8) | 1 |
+| Nodo | Formato | dtype fxpmath | Bits enteros |
+|---|---|---|---|
+| x[n] entrada | S(8,6) | `fxp-s8/6` | 1 |
+| twiddle W | S(10,8) | `fxp-s10/8` | 1 |
+| H[k] ROM | S(10,8) | `fxp-s10/8` | 1 |
+| FFT etapa 1 | S(11,8) | `fxp-s11/8` | 2 |
+| FFT etapa 2 | S(12,8) | `fxp-s12/8` | 3 |
+| FFT etapa 3 | S(13,8) | `fxp-s13/8` | 4 |
+| FFT etapa 4 | S(14,8) | `fxp-s14/8` | 5 |
+| Y[k]=X[k]H[k] | S(14,8) | `fxp-s14/8` | 5 |
+| IFFT etapa 1 | S(14,8) | `fxp-s14/8` | 5 |
+| IFFT etapa 2 | S(14,8) | `fxp-s14/8` | 5 |
+| IFFT etapa 3 | S(14,8) | `fxp-s14/8` | 5 |
+| IFFT etapa 4 | S(14,8) | `fxp-s14/8` | 5 |
+| y[n] salida | S(10,8) | `fxp-s10/8` | 1 |
 
-Redondeo: `round` - Overflow: `sat`
+Redondeo: `round` (half-up) - Overflow: `sat`
 
 ## Float vs punto fijo (2048 simbolos por dataset)
 
