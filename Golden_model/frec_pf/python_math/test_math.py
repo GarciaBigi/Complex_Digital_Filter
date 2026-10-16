@@ -1,16 +1,11 @@
 """
-Tests de la version fxpmath:   python3 test_math.py
+Tests del golden en punto fijo (fxpmath):   python3 test_math.py
 
-Ademas de los chequeos de consistencia, compara BIT A BIT contra el golden de
-enteros (../python), nodo por nodo, en varias configuraciones. El golden se
-ejecuta en un proceso aparte porque ambas carpetas tienen modulos con el mismo
-nombre (config, signals, freq_filter).
+Chequeos de consistencia y comparacion BIT A BIT de todos los nodos (ROMs,
+etapas de FFT, producto espectral, etapas de IFFT y salida) contra los
+vectores de referencia de ../vectors, que son los que usa el testbench RTL.
 """
-import json
 import os
-import subprocess
-import sys
-import tempfile
 
 import numpy as np
 from fxpmath import Fxp
@@ -18,11 +13,11 @@ from fxpmath import Fxp
 import config as C
 from fft_fxp import fft_fxp, twiddle_rom
 from freq_filter import FreqFilterFxp, ols_float
-from fxp_utils import Fmt, fxp_raw, quantize, requant
+from fxp_utils import Fmt, fxp_raw, pack_complex_hex, quantize, requant
 from signals import datasets, normalize_taps, rrcos, upsample
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-GOLDEN_DIR = os.path.join(os.path.dirname(HERE), "python")
+VECTORS = os.path.join(os.path.dirname(HERE), "vectors")
 h = normalize_taps(rrcos(C.BETA, C.OS, C.N_TAPS, C.RRC_SYMMETRIC), C.N_FFT)
 
 
@@ -49,7 +44,7 @@ def test_fxpmath_rounding_semantics():
 
 
 def test_requant():
-    """Mismos casos que python/test_golden.py::test_requant."""
+    """Casos hechos a mano: half-up, truncado, saturacion y wrap."""
     f = Fmt(8, 4)
     v = fxp_raw([5, 6, 7, -5, -6, -7], Fmt(16, 2))
     assert list(requant(v, Fmt(8, 0)).val) == [1, 2, 2, -1, -1, -2]
@@ -88,66 +83,41 @@ def test_fixed_filter_all_datasets():
         assert sqnr_db(ols_float(x, h), y_fx) > 35, name
 
 
-# --------------------------------------- bit a bit contra ../python ---------
-_GOLDEN_SCRIPT = r"""
-import json, sys
-import numpy as np
-import config as C
-from freq_filter import FreqFilterFixed
-from signals import datasets, normalize_taps, rrcos, upsample
-args = json.loads(sys.argv[1])
-h = normalize_taps(rrcos(C.BETA, C.OS, C.N_TAPS, C.RRC_SYMMETRIC), C.N_FFT)
-f = FreqFilterFixed(h, C.make_cfg(h, **args["cfg"]))
-x = upsample(datasets(args["n_sym"], h, C.OS)[args["dataset"]], C.OS)
-_, (xr, xi), (yr, yi), blocks, log = f.run(x, keep_blocks=True)
-out = dict(x_re=xr, x_im=xi, y_re=yr, y_im=yi, tw_re=f.tw_re, tw_im=f.tw_im,
-           H_re=f.H_re, H_im=f.H_im)
-for s in range(C.LOG2N):
-    for t in ("fft", "ifft"):
-        out[f"{t}{s}_re"] = np.stack([b[t + "_stages"][s][0] for b in blocks])
-        out[f"{t}{s}_im"] = np.stack([b[t + "_stages"][s][1] for b in blocks])
-out["Y_re"] = np.stack([b["Y"][0] for b in blocks])
-out["Y_im"] = np.stack([b["Y"][1] for b in blocks])
-np.savez(args["out"], **out)
-"""
+# ------------------------------------- bit a bit contra ../vectors ---------
+N_SYM_DATA = 2048      # los datasets se generan con 2048 simbolos (como run_math.py)
+N_SYM_VEC = 256        # y se exportan los primeros 256
 
 
-def golden_reference(cfg_kw, dataset, n_sym, out):
-    args = json.dumps(dict(cfg=cfg_kw, dataset=dataset, n_sym=n_sym, out=out))
-    subprocess.run([sys.executable, "-c", _GOLDEN_SCRIPT, args], cwd=GOLDEN_DIR, check=True)
-    return np.load(out)
+def _hex(re, im, nb):
+    return [pack_complex_hex(r, i, nb) for r, i in zip(np.ravel(re), np.ravel(im))]
 
 
-CONFIGS = [
-    {},                                                   # configuracion del diseno
-    {"rnd": "trunc"},                                     # truncado de hardware
-    {"nbf_d": 4, "nb_tw": 6, "nb_h": 6},                  # anchos chicos: muchos redondeos
-    {"nbf_d": 12, "nb_tw": 14, "nb_h": 14},               # anchos grandes
-    {"nbf_d": 3, "nb_x": 4, "nbf_x": 1, "ovf": "wrap"},   # desborde en complemento a 2
-]
-
-
-def test_bit_exact_vs_golden():
-    if not os.path.isfile(os.path.join(GOLDEN_DIR, "freq_filter.py")):
-        print("    (salteado: no esta ../python, el golden de enteros contra el que se compara)")
+def test_matches_reference_vectors():
+    """Cada nodo del modelo coincide bit a bit con los archivos de ../vectors."""
+    if not os.path.isdir(VECTORS):
+        print("    (salteado: no esta ../vectors)")
         return
-    with tempfile.TemporaryDirectory() as tmp:
-        for i, kw in enumerate(CONFIGS):
-            for dataset in ("random_a", "worst_case", "impulse"):
-                g = golden_reference(kw, dataset, 128, os.path.join(tmp, f"g{i}.npz"))
-                f = FreqFilterFxp(h, C.make_cfg(h, **kw))
-                x = upsample(datasets(128, h, C.OS)[dataset], C.OS)
-                _, (xr, xi), (yr, yi), r, _ = f.run(x, keep_blocks=True)
-                mine = dict(x_re=xr, x_im=xi, y_re=yr, y_im=yi,
-                            tw_re=f.tw_re.val, tw_im=f.tw_im.val, H_re=f.H_re.val,
-                            H_im=f.H_im.val, Y_re=r["Y"][0].val, Y_im=r["Y"][1].val)
-                for s in range(C.LOG2N):
-                    for t in ("fft", "ifft"):
-                        mine[f"{t}{s}_re"] = r[t + "_stages"][s][0].val
-                        mine[f"{t}{s}_im"] = r[t + "_stages"][s][1].val
-                for node, ref in g.items():
-                    assert np.array_equal(np.asarray(mine[node]), ref), \
-                        f"config {kw}, {dataset}: difiere el nodo {node}"
+    cfg = C.make_cfg(h)
+    f = FreqFilterFxp(h, cfg)
+
+    def check(rel, re, im, nb):
+        with open(os.path.join(VECTORS, rel)) as fh:
+            assert _hex(re, im, nb) == fh.read().split(), f"difiere {rel}"
+
+    check("rom/twiddle.hex", f.tw_re.val, f.tw_im.val, cfg.tw.nb)
+    check("rom/H.hex", f.H_re.val, f.H_im.val, cfg.h.nb)
+    for name, sym in datasets(N_SYM_DATA, h, C.OS).items():
+        x = upsample(sym[:N_SYM_VEC], C.OS)
+        _, (xr, xi), (yr, yi), r, _ = f.run(x, keep_blocks=True)
+        check(f"{name}/x_in.hex", xr, xi, cfg.x.nb)
+        check(f"{name}/y_out.hex", yr, yi, cfg.y.nb)
+        check(f"{name}/blk_in.hex", r["buf"][0].val, r["buf"][1].val, cfg.x.nb)
+        check(f"{name}/spec_mult.hex", r["Y"][0].val, r["Y"][1].val, cfg.y_spec.nb)
+        for s in range(C.LOG2N):
+            st, ist = r["fft_stages"][s], r["ifft_stages"][s]
+            check(f"{name}/fft_st{s + 1}.hex", st[0].val, st[1].val, cfg.fft_st[s].nb)
+            check(f"{name}/ifft_st{s + 1}.hex", ist[0].val, ist[1].val, cfg.ifft_st[s].nb)
+
 
 
 if __name__ == "__main__":

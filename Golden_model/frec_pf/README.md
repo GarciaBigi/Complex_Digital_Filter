@@ -56,10 +56,3 @@ Este golden normaliza los taps para que **max|H[k]| = 1**: el filtro no amplific
 frecuencia y los anchos de punto fijo se calcularon con esa cota. `../frec_float/frec_float.py`
 normaliza con **sum(h) = 1**. Los taps tienen la misma forma pero distinta escala, así que
 **las salidas no se pueden comparar directamente** hasta acordar una sola normalización.
-
-## Origen
-
-`docs/` describe también el golden equivalente escrito con enteros (`python/`), que vive en el
-repo original del autor y no se incluyó acá. La presentación muestra ese código; la versión
-de `python_math/` hace exactamente las mismas operaciones con fxpmath y da los mismos
-resultados bit a bit.

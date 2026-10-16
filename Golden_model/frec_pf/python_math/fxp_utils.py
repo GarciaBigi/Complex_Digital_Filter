@@ -1,5 +1,5 @@
 """
-Punto fijo con la libreria fxpmath (equivalente a python/fixed_point.py).
+Utilidades de punto fijo bit-exactas sobre la libreria fxpmath.
 
 Convencion de formato: S(NB, NBF) == dtype fxpmath 'fxp-s<NB>/<NBF>'.
 

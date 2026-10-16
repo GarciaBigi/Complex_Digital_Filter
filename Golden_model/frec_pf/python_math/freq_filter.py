@@ -1,11 +1,26 @@
 """
-Filtro FIR complejo en frecuencia, overlap-save 50 %, con fxpmath
-(equivalente a python/freq_filter.py; ver ahi la explicacion del metodo).
+Filtro FIR complejo en el dominio de la frecuencia por bloques, metodo
+OVERLAP-SAVE con 50 % de solapamiento, en punto fijo con fxpmath.
 
-Diferencia de organizacion: en vez de un bucle de bloques, run() arma una
-matriz (bloques x 16) y process_blocks() procesa TODOS los bloques a la vez.
-El resultado es el mismo bit a bit (cada bloque es independiente), y compensa
-que fxpmath es mas lenta que operar con enteros de numpy.
+    N = 16 (FFT), L = N/2 = 8 muestras nuevas por bloque, M = 8 taps
+    Condicion overlap-save: M - 1 = 7 <= N - L = 8   OK
+
+Bloque b:
+    buf_b   = [ x[(b-1)L .. bL-1]  |  x[bL .. (b+1)L-1] ]   (16 muestras)
+                 mitad vieja            mitad nueva
+    X_b     = FFT16(buf_b)
+    Y_b     = X_b * H              (H = FFT16 de h con ceros)
+    y_circ  = IFFT16(Y_b)
+    y[bL .. (b+1)L-1] = y_circ[L .. N-1]      (se descarta la 1ra mitad,
+                                                contaminada por aliasing circular)
+
+La salida queda alineada muestra a muestra con la convolucion lineal
+np.convolve(x, h)[:len(x)] (latencia algoritmica 0 en el indice de muestra;
+en hardware la latencia real es 1 bloque + pipeline).
+
+Organizacion: run() arma una matriz (bloques x 16) y process_blocks() procesa
+TODOS los bloques a la vez (cada bloque es independiente), lo que hace rapido
+el modelo aunque fxpmath opere con objetos.
 """
 import numpy as np
 

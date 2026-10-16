@@ -1,6 +1,4 @@
 """
-(Copia de python/config.py: mismos parametros y formatos; Fmt viene de fxp_utils.)
-
 Parametros del sistema y formatos de punto fijo de cada nodo del filtro en
 frecuencia. Todos los anchos se derivan de unas pocas perillas (NBF_*), con los
 bits enteros calculados a partir de cotas de peor caso -> sin overflow posible

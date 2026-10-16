@@ -1,8 +1,11 @@
 """
-FFT / IFFT radix-2 DIT bit-exacta con fxpmath (equivalente a python/fft_fixed.py).
+FFT / IFFT radix-2 de decimacion en tiempo (DIT), bit-exacta, con fxpmath.
 
-Diferencia con la version de enteros: cada Fxp ya conoce su formato, asi que no
-hace falta llevar a mano los bits fraccionales ni alinear con shifts:
+Estructura (N=16 -> 4 etapas x 8 mariposas), referencia de una FFT totalmente
+paralela en RTL: entrada en orden bit-reverso -> etapa 1 -> ... -> salida natural.
+
+Cada Fxp conoce su formato, asi que no hace falta llevar a mano los bits
+fraccionales ni alinear con shifts:
     t = W * b          -> fxpmath calcula el producto a ancho completo
     a + t              -> fxpmath alinea los puntos fraccionales solo
     (a + t) * HALF     -> /2 exacto de la IFFT (agrega 1 bit fraccional)

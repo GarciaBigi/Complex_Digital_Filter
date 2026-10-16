@@ -1,9 +1,9 @@
 """
-Modelo golden con fxpmath (equivalente a python/run_golden.py).
+Modelo golden en punto fijo (fxpmath) del filtro RRC en frecuencia.
 
     python3 run_math.py
 
-Salidas (en python_math/out/, para no pisar las del golden de enteros):
+Salidas (en python_math/out/):
     img/*.png          float vs fijo y barridos de SQNR
     vectors/           mismos archivos y formato que ../vectors
     resultados.md      metricas + comparacion bit a bit contra ../vectors
@@ -145,7 +145,7 @@ def export(h, cfg, data):
         write_hex(os.path.join(d, "spec_mult.hex"), r["Y"][0].val, r["Y"][1].val, cfg.y_spec.nb)
 
 
-def compare_with_golden():
+def compare_with_reference():
     """Compara cada .hex exportado contra el mismo archivo de ../vectors."""
     if not os.path.isdir(GOLDEN_VEC):
         return None
@@ -177,9 +177,9 @@ def write_report(cfg, rows, sw, cmp, t_run):
             f.write(f"| {r['dataset']} | {r['td_vs_fd']:.1e} | {r['sqnr']:.1f} | "
                     f"{r['max_err_lsb']:.2f} | {r['ovf']} |\n")
         f.write(f"\nTiempo de `run()` con {N_SYM} simbolos: {t_run * 1e3:.0f} ms\n")
-        f.write("\n## Comparacion bit a bit contra el golden de enteros (`../vectors`)\n\n")
+        f.write("\n## Comparacion bit a bit contra los vectores de referencia (`../vectors`)\n\n")
         if cmp is None:
-            f.write("No se encontro `../vectors`: correr antes `make golden`.\n")
+            f.write("No se encontro `../vectors`.\n")
         else:
             n_ok = sum(ok for _, ok in cmp)
             f.write(f"**{n_ok} / {len(cmp)} archivos identicos.**\n\n| Archivo | Identico |\n|---|---|\n")
@@ -215,9 +215,9 @@ def main():
     sw = plots(h, cfg, x_a)
 
     export(h, cfg, data)
-    cmp = compare_with_golden()
+    cmp = compare_with_reference()
     if cmp is None:
-        print("\nNo hay ../vectors para comparar (correr antes `make golden`).")
+        print("\nNo hay ../vectors para comparar.")
     else:
         n_ok = sum(ok for _, ok in cmp)
         print(f"\nBit a bit contra ../vectors: {n_ok}/{len(cmp)} archivos identicos")

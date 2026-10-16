@@ -29,9 +29,9 @@
 | alternating | 1.1e-16 | 68.0 | 1.05 | 0 |
 | worst_case | 2.4e-16 | 51.1 | 1.14 | 0 |
 
-Tiempo de `run()` con 2048 simbolos: 945 ms
+Tiempo de `run()` con 2048 simbolos: 1037 ms
 
-## Comparacion bit a bit contra el golden de enteros (`../vectors`)
+## Comparacion bit a bit contra los vectores de referencia (`../vectors`)
 
 **74 / 74 archivos identicos.**
 

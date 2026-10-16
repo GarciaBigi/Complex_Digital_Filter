@@ -1,5 +1,5 @@
 """
-Generacion de senales de prueba (identico a python/signals.py: no usa punto fijo).
+Generacion de senales de prueba (en punto flotante).
 Simbolos QPSK (+/-1 +/- j), sobremuestreo y filtro RRC.
 """
 import numpy as np
