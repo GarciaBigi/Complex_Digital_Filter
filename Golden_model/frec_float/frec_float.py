@@ -169,7 +169,6 @@ def plots(h):
 
     H = np.fft.fft(h, NFFT)
     Hf = np.fft.fft(h, 512)
-    f = np.arange(512) / 512
     ak = datasets()["qpsk_aleatorio_256"]
     xup = np.zeros(len(ak) * TS, dtype=complex)      # upsampling por TS
     xup[::TS] = ak
@@ -185,8 +184,11 @@ def plots(h):
     plt.grid(alpha=.3)
 
     plt.figure("Respuesta en frecuencia")
-    plt.plot(f, 20 * np.log10(np.abs(Hf) + 1e-12), label="|H| (512 pts)")
-    plt.plot(np.arange(NFFT) / NFFT, 20 * np.log10(np.abs(H) + 1e-12), "o", label=f"H[k], N={NFFT}")
+    fc = np.fft.fftshift(np.fft.fftfreq(512))              # -0.5 ... 0.5 ciclos/muestra
+    fk = np.fft.fftshift(np.fft.fftfreq(NFFT))
+    plt.plot(fc, 20 * np.log10(np.abs(np.fft.fftshift(Hf)) + 1e-12), label="|H| (512 pts)")
+    plt.plot(fk, 20 * np.log10(np.abs(np.fft.fftshift(H)) + 1e-12), "o", label=f"H[k], N={NFFT}")
+    plt.ylim(-60, 3)                                        # el cero exacto en 0.5 cae a -240 dB
     plt.title("Respuesta en frecuencia")
     plt.xlabel("frecuencia normalizada (ciclos/muestra)")
     plt.ylabel("dB")
