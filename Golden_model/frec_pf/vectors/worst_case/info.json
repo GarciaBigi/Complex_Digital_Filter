@@ -1,0 +1,7 @@
+{
+  "n_symbols": 256,
+  "n_samples": 512,
+  "n_blocks": 64,
+  "os": 2,
+  "packing": "{im, re}"
+}
