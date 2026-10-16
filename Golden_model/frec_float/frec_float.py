@@ -39,7 +39,8 @@ def qammod(x, M):
 def root_raised_cosine(n_taps=P, rolloff=BETA, ts=TS):
     """RRC muestreado.
     Con n_taps par las muestras caen en n = -3.5 ... +3.5 (retardo de 3.5 muestras), asi que no hay muestra en t = 0.
-    Normalizacion: sum(h) = 1 (ganancia unitaria en DC).
+    Normalizacion: max|H[k]| = 1 sobre la FFT de NFFT puntos (el filtro no amplifica
+    ninguna frecuencia). Es la misma que usa el golden de punto fijo (frec_pf).
     """
     n = np.arange(n_taps) - (n_taps - 1) / 2.0
     tn = n / ts
@@ -55,7 +56,7 @@ def root_raised_cosine(n_taps=P, rolloff=BETA, ts=TS):
             num = np.sin(np.pi * (1 - rolloff) * t) + 4 * rolloff * t * np.cos(np.pi * (1 + rolloff) * t)
             den = np.pi * t * (1 - (4 * rolloff * t) ** 2)
             h[i] = num / den
-    return h / np.sum(h)
+    return h / np.max(np.abs(np.fft.fft(h, NFFT)))
 
 
 # ----------------------------------------------------------------------------
@@ -115,7 +116,7 @@ def datasets(seed=1234):
 # Verificacion contra la referencia en el tiempo
 # ----------------------------------------------------------------------------
 def verify(h):
-    print(f"h[n] ({P} taps, beta={BETA}, Ts={TS}, sum(h)=1) = {np.round(h, 6)}")
+    print(f"h[n] ({P} taps, beta={BETA}, Ts={TS}, max|H|=1) = {np.round(h, 6)}")
     print(f"NFFT={NFFT}, hop={HOP}, solape={OVERLAP} (>= P-1 = {P - 1}), "
           f"muestras utiles/IFFT = {NFFT - P + 1}, guardadas = {HOP}")
     print(f"{'dataset':26s} {'err vs filtro tiempo':>21s} {'err vs convolve':>16s}")
@@ -123,7 +124,7 @@ def verify(h):
     for name, ak in datasets().items():
         xup = np.zeros(len(ak) * TS, dtype=complex)  # upsampling: ceros entre simbolos
         xup[::TS] = ak
-        x = TS * xup                                 # compensa la amplitud
+        x = xup                                      # simbolos +-1 (sin escalar por Ts)
         y_ols = filter_overlap_save(x, h)            # len(x)+P-1 muestras
         y_cv = np.convolve(x, h)                     # conv. lineal completa (len(x)+P-1)
         y_t = lfilter(h, 1, x)                       # filtro FIR causal en el tiempo (len(x))
@@ -148,7 +149,7 @@ def export_vectors(h, outdir=None):
     ak = qammod(rng.integers(0, 4, 256), 4)          # 256 simbolos
     xup = np.zeros(len(ak) * TS, dtype=complex)      # upsampling por TS -> 512 muestras
     xup[::TS] = ak
-    x = TS * xup
+    x = xup                                          # simbolos +-1 (sin escalar por Ts)
     y = filter_overlap_save(x, h)
     np.savetxt(f"{outdir}/h_float.csv", h, fmt="%.17g", header="h[n]")
     np.savetxt(f"{outdir}/H_k_float.csv", np.c_[H.real, H.imag], fmt="%.17g,%.17g",
@@ -172,7 +173,7 @@ def plots(h):
     ak = datasets()["qpsk_aleatorio_256"]
     xup = np.zeros(len(ak) * TS, dtype=complex)      # upsampling por TS
     xup[::TS] = ak
-    x = (TS * xup)[:128]
+    x = xup[:128]
     y = filter_overlap_save(x, h)[:128]
     y_ref = lfilter(h, 1, x)               # filtro en el tiempo
 

@@ -30,7 +30,7 @@ Redondeo: `round` (half-up) - Overflow: `sat`
 
 | Dataset | max\|FIR tiempo - OLS float\| | SQNR fijo vs float [dB] | Error max [LSB salida] | Pico salida | Overflows |
 |---|---|---|---|---|---|
-| random_a | 3.6e-16 | 48.9 | 2.08 | 0.648 | 0 |
+| random_a | 3.7e-16 | 48.9 | 2.08 | 0.648 | 0 |
 | random_b | 3.5e-16 | 48.9 | 2.08 | 0.648 | 0 |
 | impulse | 7.9e-17 | 39.7 | 1.03 | 0.484 | 0 |
 | constant | 1.6e-16 | 67.6 | 1.05 | 0.570 | 0 |
