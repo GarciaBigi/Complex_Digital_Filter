@@ -1,0 +1,6 @@
+# Archivos que genera la simulacion
+*.vvp
+*.vcd
+*.log
+build/
+*.out

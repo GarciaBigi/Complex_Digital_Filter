@@ -1,0 +1,2 @@
+# Fin de linea LF para que make e iverilog funcionen igual en WSL/Linux
+* text=auto eol=lf
