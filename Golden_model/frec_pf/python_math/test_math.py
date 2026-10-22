@@ -14,7 +14,7 @@ import config as C
 from fft_fxp import fft_fxp, twiddle_rom
 from freq_filter import FreqFilterFxp, ols_float
 from fxp_utils import Fmt, fxp_raw, pack_complex_hex, quantize, requant
-from signals import datasets, normalize_taps, rrcos, upsample
+from signals import datasets, normalize_taps, rrcos, stress_signal, upsample
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 VECTORS = os.path.join(os.path.dirname(HERE), "vectors")
@@ -106,8 +106,9 @@ def test_matches_reference_vectors():
 
     check("rom/twiddle.hex", f.tw_re.val, f.tw_im.val, cfg.tw.nb)
     check("rom/H.hex", f.H_re.val, f.H_im.val, cfg.h.nb)
-    for name, sym in datasets(N_SYM_DATA, h, C.OS).items():
-        x = upsample(sym[:N_SYM_VEC], C.OS)
+    xs = {n: upsample(s[:N_SYM_VEC], C.OS) for n, s in datasets(N_SYM_DATA, h, C.OS).items()}
+    xs["stress"] = stress_signal(N_SYM_VEC * C.OS)
+    for name, x in xs.items():
         _, (xr, xi), (yr, yi), r, _ = f.run(x, keep_blocks=True)
         check(f"{name}/x_in.hex", xr, xi, cfg.x.nb)
         check(f"{name}/y_out.hex", yr, yi, cfg.y.nb)
