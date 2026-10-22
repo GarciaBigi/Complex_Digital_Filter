@@ -30,12 +30,15 @@ Redondeo: `round` (half-up) - Overflow: `sat`
 
 | Dataset | max\|FIR tiempo - OLS float\| | SQNR fijo vs float [dB] | Error max [LSB salida] | Pico salida | Overflows |
 |---|---|---|---|---|---|
-| random_a | 3.7e-16 | 48.9 | 2.08 | 0.648 | 0 |
+| random_a | 3.6e-16 | 48.9 | 2.08 | 0.648 | 0 |
 | random_b | 3.5e-16 | 48.9 | 2.08 | 0.648 | 0 |
 | impulse | 7.9e-17 | 39.7 | 1.03 | 0.484 | 0 |
 | constant | 1.6e-16 | 67.6 | 1.05 | 0.570 | 0 |
 | alternating | 1.1e-16 | 68.0 | 1.05 | 0.562 | 0 |
 | worst_case | 2.4e-16 | 51.1 | 1.14 | 0.648 | 0 |
+| stress | 5.6e-16 | 40.5 | 3.19 | 1.152 | 0 |
+
+`stress`: 4096 muestras complejas aleatorias en [-1, 1], sin sobremuestreo (no es QPSK): hace redondear a todas las mariposas de la FFT.
 
 ## Barrido de anchos (dataset random_a)
 

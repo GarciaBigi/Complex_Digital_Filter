@@ -93,3 +93,16 @@ def datasets(n_sym, h, os, seed=1234):
     wc = np.resize(s, n_sym)
     d["worst_case"] = wc + 1j * wc
     return d
+
+
+def stress_signal(n, seed=4321):
+    """
+    n muestras complejas aleatorias en [-1, 1], SIN sobremuestreo (no es QPSK).
+
+    Con QPSK sobremuestreada la mitad de las muestras son cero: la FFT solo
+    multiplica valores exactos y nunca redondea. Esta senal hace trabajar todas
+    las mariposas y todos los redondeos. |x| <= sqrt(2): respeta las mismas
+    cotas de diseno que QPSK, asi que tampoco puede haber overflow.
+    """
+    rng = np.random.default_rng(seed)
+    return rng.uniform(-1, 1, n) + 1j * rng.uniform(-1, 1, n)
