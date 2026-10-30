@@ -17,6 +17,8 @@ python_math/        código del golden (fxpmath) + tests  → ver python_math/RE
 vectors/            vectores para el testbench RTL
   rom/              twiddle.hex, H.hex y golden_params.svh (anchos de cada nodo)
   <dataset>/        x_in, y_out y la salida de cada etapa (fft_st1..4, spec_mult, ifft_st1..4)
+                    6 datasets QPSK + stress (muestras aleatorias sin sobremuestreo: con
+                    QPSK sobremuestreada la FFT nunca redondea, con stress si)
 docs/
   arquitectura.md   diagrama en bloques + descripción de cada etapa + formatos
   resultados.md     métricas float vs punto fijo y barridos de bits
@@ -34,7 +36,7 @@ python3 run_math.py
 ```
 
 `run_math.py` regenera `python_math/out/` y compara sus vectores contra `vectors/`: debe
-informar **74/74 archivos idénticos**.
+informar **86/86 archivos idénticos**.
 
 ## Formatos de punto fijo (S(NB, NBF) = NB bits con signo, NBF fraccionales)
 

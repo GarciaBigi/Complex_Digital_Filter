@@ -37,7 +37,7 @@ python3 run_math.py       # métricas, gráficos, vectores y reporte en out/
 ```
 
 `run_math.py` también compara los vectores que genera contra `../vectors`: tiene que dar
-**74/74 archivos idénticos**. En `out/vectors/rom/golden_params.svh` deja los anchos de cada
+**86/86 archivos idénticos**. En `out/vectors/rom/golden_params.svh` deja los anchos de cada
 nodo para el RTL.
 
 ## Velocidad

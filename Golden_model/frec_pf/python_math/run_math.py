@@ -23,7 +23,7 @@ import numpy as np
 import config as C
 from freq_filter import FreqFilterFxp, ols_float
 from fxp_utils import pack_complex_hex
-from signals import datasets, normalize_taps, rrcos, upsample
+from signals import datasets, normalize_taps, rrcos, stress_signal, upsample
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 OUT = os.path.join(HERE, "out")
@@ -42,11 +42,11 @@ def sqnr_db(ref, test):
 
 
 # --------------------------------------------------------------- metricas ---
-def evaluate(h, cfg, data):
+def evaluate(h, cfg, xs):
+    """xs: nombre -> senal de entrada (ya sobremuestreada)."""
     filt = FreqFilterFxp(h, cfg)
     rows = []
-    for name, sym in data.items():
-        x = upsample(sym, C.OS)
+    for name, x in xs.items():
         y_td = np.convolve(x, h)[:len(x)]
         y_fd = ols_float(x, h)
         y_fx, *_, log = filt.run(x)
@@ -182,10 +182,11 @@ def export(h, cfg, data):
         f.write(f"// redondeo = {cfg.rnd}, overflow = {cfg.ovf}\n")
         f.write("// Palabras hex complejas empaquetadas como {im, re}\n")
         f.write("// H.hex / twiddle.hex: ROM_H[k] k=0..N-1 ; ROM_W[k] = W_N^k k=0..N/2-1\n")
-    for name, sym in data.items():
+    xs = {name: upsample(sym[:N_SYM_VEC], C.OS) for name, sym in data.items()}
+    xs["stress"] = stress_signal(N_SYM_VEC * C.OS)     # mismo largo: 512 muestras
+    for name, x in xs.items():
         d = os.path.join(VEC, name)
         os.makedirs(d, exist_ok=True)
-        x = upsample(sym[:N_SYM_VEC], C.OS)
         _, (xr, xi), (yr, yi), r, _ = filt.run(x, keep_blocks=True)
         write_hex(os.path.join(d, "x_in.hex"), xr, xi, cfg.x.nb)
         write_hex(os.path.join(d, "y_out.hex"), yr, yi, cfg.y.nb)
@@ -229,6 +230,8 @@ def write_report(cfg, rows, sw, cmp, t_run):
         for r in rows:
             f.write(f"| {r['dataset']} | {r['td_vs_fd']:.1e} | {r['sqnr']:.1f} | "
                     f"{r['max_err_lsb']:.2f} | {r['ovf']} |\n")
+        f.write(f"\n`stress`: {N_SYM * C.OS} muestras complejas aleatorias en [-1, 1], sin "
+                "sobremuestreo (no es QPSK): hace redondear a todas las mariposas de la FFT.\n")
         f.write(f"\nTiempo de `run()` con {N_SYM} simbolos: {t_run * 1e3:.0f} ms\n")
         f.write("\n## Comparacion bit a bit contra los vectores de referencia (`../vectors`)\n\n")
         if cmp is None:
@@ -268,6 +271,8 @@ def write_docs_report(h, cfg, rows, sw):
         for r in rows:
             f.write(f"| {r['dataset']} | {r['td_vs_fd']:.1e} | {r['sqnr']:.1f} | "
                     f"{r['max_err_lsb']:.2f} | {r['peak']:.3f} | {r['ovf']} |\n")
+        f.write(f"\n`stress`: {N_SYM * C.OS} muestras complejas aleatorias en [-1, 1], sin "
+                "sobremuestreo (no es QPSK): hace redondear a todas las mariposas de la FFT.\n")
         f.write("\n## Barrido de anchos (dataset random_a)\n\n")
         f.write("| NBF_D | SQNR redondeo [dB] | SQNR truncado [dB] |\n|---|---|---|\n")
         for n, a, b in zip(sw["nbf"], sw["round"], sw["trunc"]):
@@ -290,7 +295,9 @@ def main():
     for node, fmt in cfg.table():
         print(f"  {node:<16s} {str(fmt):<8s} {fmt.dtype}")
 
-    rows = evaluate(h, cfg, data)
+    xs = {name: upsample(sym, C.OS) for name, sym in data.items()}
+    xs["stress"] = stress_signal(N_SYM * C.OS)
+    rows = evaluate(h, cfg, xs)
     print(f"\n{'dataset':<12s} {'FIR-OLS':>9s} {'SQNR dB':>8s} {'errLSB':>7s} {'ovf':>4s}")
     for r in rows:
         print(f"{r['dataset']:<12s} {r['td_vs_fd']:9.1e} {r['sqnr']:8.1f} "
