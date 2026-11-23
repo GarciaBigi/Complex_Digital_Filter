@@ -17,6 +17,8 @@ x[n] S(8,6) ─┤                                                              
 
 `x[n]` son símbolos QPSK sobremuestreados por 2; arriba el filtro en el tiempo, abajo el filtro en la frecuencia.
 
+![Filtro en la frecuencia: overlap-save con FFT de 16 puntos](https://raw.githubusercontent.com/wiki/GarciaBigi/Complex_Digital_Filter/images/ff_pf_diagrama_bloques.png)
+
 Cada filtro se desarrolla en tres niveles, y cada nivel se verifica contra el anterior:
 
 ```
@@ -37,6 +39,10 @@ Golden model float (Python) ──► Golden model punto fijo (Python, fxpmath) 
 Las dos salidas en punto fijo difieren en **1 LSB como máximo** entre sí.
 
 **PPA del filtro en frecuencia** (Yosys + SKY130 HD, corner tt, pre-layout, 100 MHz): área **0.53 mm²** (4073 FFs), Fmax **63.7 MHz** (114 MHz en el camino de datos), potencia **23.4 mW**. Detalle en [Paralelización y PPA](https://github.com/GarciaBigi/Complex_Digital_Filter/wiki/Paralelizacion-PPA).
+
+![Potencia según la actividad de entrada](https://raw.githubusercontent.com/wiki/GarciaBigi/Complex_Digital_Filter/images/ppa_potencia_actividad.png)
+
+Con la entrada activa el 10 % del tiempo el filtro sigue consumiendo el 74 % de la potencia: el reloj llega a los 4073 flip-flops en todos los ciclos. Ese piso es el que ataca el clock gating.
 
 ## Estructura del repositorio
 
